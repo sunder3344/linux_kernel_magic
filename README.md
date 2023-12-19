@@ -9,7 +9,7 @@
 # rmmod problem（linux 3.10）
 参考del_module目录
 
-当使用rmmod移除linux内核模块时，系统报"rmmod: ERROR: Module XXX is in use"，网上搜到的是内核3.19以后的解决方法（https://zhuanlan.zhihu.com/p/597326505），这里列一下3.19之前版本的解决方法，可以从kernel/moudle.c中的module_unload_init方法看到如何去初始化incs的，照着拿来重置计数就行了
+当使用rmmod移除linux内核模块时，系统报"rmmod: ERROR: Module XXX is in use"，网上搜到的是内核3.19以后的解决方法[https://zhuanlan.zhihu.com/p/597326505]，这里列一下3.19之前版本的解决方法，可以从kernel/moudle.c中的module_unload_init方法看到如何去初始化incs的，照着拿来重置计数就行了
 
 ```
 static int module_unload_init(struct module *mod)
