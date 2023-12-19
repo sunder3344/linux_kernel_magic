@@ -1,8 +1,8 @@
-# rmmod problem£¨linux 3.10£©
+# rmmod problemï¼ˆlinux 3.10ï¼‰
 
-µ±Ê¹ÓÃrmmodÒÆ³ılinuxÄÚºËÄ£¿éÊ±£¬ÏµÍ³±¨"rmmod: ERROR: Module XXX is in use"
+å½“ä½¿ç”¨rmmodç§»é™¤linuxå†…æ ¸æ¨¡å—æ—¶ï¼Œç³»ç»ŸæŠ¥"rmmod: ERROR: Module XXX is in use"ï¼Œç½‘ä¸Šæœåˆ°çš„æ˜¯å†…æ ¸3.19ä»¥åçš„è§£å†³æ–¹æ³•ï¼Œè¿™é‡Œåˆ—ä¸€ä¸‹3.19ä¹‹å‰ç‰ˆæœ¬çš„è§£å†³æ–¹æ³•ï¼Œå¯ä»¥ä»kernel/moudle.cä¸­çš„module_unload_initæ–¹æ³•çœ‹åˆ°å¦‚ä½•å»åˆå§‹åŒ–incsçš„ï¼Œç…§ç€æ‹¿æ¥é‡ç½®è®¡æ•°å°±è¡Œäº†
 
-1. make±àÒëdiamante
-2. lsmod²é¿´¸ÃÄ£¿é¼ÆÊıÓĞ¼¸¸öÕ¼ÓÃ
-3.  insmod force_rmmod.ko modname=*** m_incs=0 m_decs=1 ½«m_decsºóÃæµÄÊıÌî³É¸ÃÄ£¿é¼ÆÊıÕ¼ÓÃµÄÊı¼´¿É
-4. rmmod *** Ö±½ÓÒÆ³ı
+1. makeç¼–è¯‘diamante
+2. lsmodæŸ¥çœ‹è¯¥æ¨¡å—è®¡æ•°æœ‰å‡ ä¸ªå ç”¨
+3.  insmod force_rmmod.ko modname=*** m_incs=0 m_decs=1 å°†m_decsåé¢çš„æ•°å¡«æˆè¯¥æ¨¡å—è®¡æ•°å ç”¨çš„æ•°å³å¯
+4. rmmod *** ç›´æ¥ç§»é™¤
