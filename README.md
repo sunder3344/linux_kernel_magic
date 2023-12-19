@@ -30,7 +30,7 @@ static int module_unload_init(struct module *mod)
 }
 ```
 
-1. make编译diamante
+1. make编译
 2. lsmod查看该模块计数有几个占用
 3.  insmod force_rmmod.ko modname=*** m_incs=0 m_decs=1 将m_decs后面的数填成该模块计数占用的数即可
 4. rmmod *** 直接移除
