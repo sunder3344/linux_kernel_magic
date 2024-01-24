@@ -15,8 +15,8 @@ struct student{
 void print_student(struct student *);
 
 static int __init testlist_init(void) {
-	struct student *stu1, *stu2, *stu3, *stu4;
-	struct student *stu, *tmp;
+	struct student *stu1, *stu2, *stu3, *stu4, *stu5, *tmp;
+	struct student *stu;
 	// init a list head
 	LIST_HEAD(stu_head);
 	// init your list nodes
@@ -45,21 +45,24 @@ static int __init testlist_init(void) {
 	list_add(&stu3->list, &stu_head);
 	list_add(&stu4->list, &stu_head);
 
-	list_for_each_entry_safe(stu, tmp, &stu_head, list) {
+	list_for_each_entry(stu, &stu_head, list) {
 		print_student(stu);
 	}
 
 	//delete an entry stu2
 	list_del(&stu2->list);
 	kfree(stu2);
-	list_for_each_entry_safe(stu, tmp, &stu_head, list) {
+	list_for_each_entry(stu, &stu_head, list) {
 		print_student(stu);
 	}
 
 	//replace stu3 with stu1
-    list_replace(&stu3->list, &stu1->list);
-	list_del(&stu3->list);
-    kfree(stu3);
+	stu5 = kmalloc(sizeof(*stu5), GFP_KERNEL);
+	stu5->id = 5;
+	stu5->name = "rommedahl";
+	INIT_LIST_HEAD(&stu5->list);
+
+    list_replace(&stu3->list, &stu5->list);
     list_for_each_entry_safe(stu, tmp, &stu_head, list) {
         print_student(stu);
     }
