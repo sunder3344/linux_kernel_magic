@@ -66,7 +66,7 @@ int main() {
 	}
 
 	while(1) {
-		ret = epoll_wait(epfd, &ev, MAX_EVENTS, 1000);
+		ret = epoll_wait(epfd, ep_events, MAX_EVENTS, 1000);
 		printf("epoll_ret = %d\n", ret);
 		for (i = 0; i < ret; ++i) {
 			if (ep_events[i].events & EPOLLIN) {
