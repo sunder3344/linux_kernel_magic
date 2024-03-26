@@ -34,4 +34,4 @@ siege -c 1000 -t 1m http://****:8888/index.html
 这里是io_uring+socket的结果
 
 
-可见看见io_uring在网络io上的提升并不明显，在我的虚拟机上甚至还不如epoll的表现，如果这里性能提升很明显，nginx，redis这类软件早就更换模型了。
+可见看见io_uring在网络io上的提升并不明显，在我的虚拟机上甚至还不如epoll的表现，如果这里性能提升很明显，nginx，redis这类软件早就把io_uring集成进去了。
