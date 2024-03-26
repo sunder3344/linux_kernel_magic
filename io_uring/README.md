@@ -18,7 +18,7 @@ io_uring的几个例子，网上io_uring的介绍很多，这里不赘述了，�
 -------------------------------------------------------------
 2. 网络IO
 
-这里和之前epoll+socket的简易版web server(https://github.com/sunder3344/non-block-socket-server/tree/master/simple_web_server)做一个对比，socket_uring.c是基于io_uring的简易web server，压测使用siege，参数如下：
+这里和之前[epoll+socket的简易版web server](https://github.com/sunder3344/non-block-socket-server/tree/master/simple_web_server)做一个对比，socket_uring.c是基于io_uring的简易web server，压测使用siege，参数如下：
 
 siege -c 1000 -t 1m http://****:8888/index.html
 
