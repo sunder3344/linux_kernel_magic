@@ -124,8 +124,8 @@ int main(int argc, char *argv[]) {
 	struct sockaddr_in clientaddr, serveraddr;
 	struct io_uring_params params;
 	memset(&params, 0, sizeof (struct io_uring_params));
-	//params.flags = IORING_SETUP_SQPOLL;
-    //params.sq_thread_idle = 2000;
+	params.flags = IORING_SETUP_SQPOLL;
+    params.sq_thread_idle = 2000;
 	struct io_uring ring;
 	int sockfd;
 
@@ -191,6 +191,7 @@ int main(int argc, char *argv[]) {
 					return_conn_info(ci);
 				}
 				set_accept_event(&ring, ci->connfd, (struct sockaddr *)&clientaddr, &clilen, 0);
+				return_conn_info(ci);
 			} else if (ci->event == EVENT_READ) {
 				if (cqe->res == 0) {
 					printf("client close\n");
