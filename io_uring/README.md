@@ -34,4 +34,15 @@ siege -c 1000 -t 1m http://****:8888/index.html
 这里是io_uring+socket的结果
 
 
-可见看见io_uring在网络io上的提升并不明显，在我的虚拟机上甚至还不如epoll的表现，如果这里性能提升很明显，nginx，redis这类软件早就把io_uring集成进去了。
+可见看见io_uring在网络io上的提升并不明显，在我的虚拟机上甚至还不如epoll的表现。
+
+另外socket_uring_normal.c和socket_uring_server.c是两个socket服务端的例子，以下分别是两者的火焰图：
+
+<img src="flame_server.svg" alt="Alt Text" height="1500"/>
+
+(socket_uring_server.c)
+
+
+<img src="flame_normal.svg" alt="Alt Text" height="500"/>
+
+(socket_uring_normal.c)
