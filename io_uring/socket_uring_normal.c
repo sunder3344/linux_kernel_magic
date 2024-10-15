@@ -6,6 +6,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <errno.h>
+#include <netinet/tcp.h>
 #include <liburing.h>
 
 #define LISTENQ 10
@@ -60,6 +61,40 @@ void set_send_event(struct io_uring *ring, int sfd, void *buf, size_t len, int f
 	memcpy(&sqe->user_data, &info, sizeof(struct ConnInfo));
 }
 
+int enable_keepalive(int sockfd) {
+    int optval = 1;
+    socklen_t optlen = sizeof(optval);
+
+    //set TCP_KEEPALIVE
+    if (setsockopt(sockfd, SOL_SOCKET, SO_KEEPALIVE, &optval, optlen) < 0) {
+        perror("setsockopt(SO_KEEPALIVE) failed");
+        return -1;
+    }
+
+    //set Keepalive probe interval
+    int keep_idle = 60;  //60 sec
+    if (setsockopt(sockfd, IPPROTO_TCP, TCP_KEEPIDLE, &keep_idle, optlen) < 0) {
+        perror("setsockopt(TCP_KEEPIDLE) failed");
+        return -1;
+    }
+
+    //probe send interval
+    int keep_interval = 10;  //10 sec
+    if (setsockopt(sockfd, IPPROTO_TCP, TCP_KEEPINTVL, &keep_interval, optlen) < 0) {
+        perror("setsockopt(TCP_KEEPINTVL) failed");
+        return -1;
+    }
+
+    //probe num
+    int keep_count = 3;  //probe num
+    if (setsockopt(sockfd, IPPROTO_TCP, TCP_KEEPCNT, &keep_count, optlen) < 0) {
+        perror("setsockopt(TCP_KEEPCNT) failed");
+        return -1;
+    }
+
+    return 0;
+}
+
 int main(int argc, char *argv[]) {
 	struct sockaddr_in clientaddr, serveraddr;
 	struct io_uring_params params;
@@ -87,6 +122,12 @@ int main(int argc, char *argv[]) {
 	so_linger.l_onoff = 1;  // open linger
 	so_linger.l_linger = 0; // set 0, close immediately
 	setsockopt(sockfd, SOL_SOCKET, SO_LINGER, &so_linger, sizeof(so_linger));
+
+	if (enable_keepalive(sockfd) < 0) {
+		close(sockfd);
+		perror("set keepalive error!");
+		return -1;
+	}
 
 	memset(&serveraddr, 0, sizeof(serveraddr));
 	serveraddr.sin_family = AF_INET;
