@@ -10,7 +10,7 @@ tasklet 是 Linux 内核中用于实现 软中断 的一种机制。它允许开
 
 1. make编译，加载模块insmod tasklet_demo.ko
 2. dmesg -w监控输出
-4. 卸载模块rmmod proc_demo
+4. 卸载模块rmmod tasklet_demo
 
 
 ## tasklet应用场景
