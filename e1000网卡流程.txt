@@ -1,0 +1,291 @@
+网卡接受消息流程（linux6.10）
+
+1. module_init(e1000_init_module);
+
+2. static int __init e1000_init_module(void)
+	注册pci：pci_register_driver(&e1000_driver);
+
+3. e1000_probe				
+	配置ethtool_ops：netdev->netdev_ops = &e1000_netdev_ops; e1000_set_ethtool_ops(netdev);		
+	注册napi：netif_napi_add(netdev, &adapter->napi, e1000_clean);	e1000_clean用做poll轮询
+
+4. e1000_clean
+	（1）网卡收到数据包，触发硬件中断。
+	（2）在中断处理函数中 (e1000_intr())，调用 napi_schedule()：
+		这会将 adapter->napi 加入 poll_list，并触发 NET_RX_SOFTIRQ 软中断。
+		关键：此时 禁用 RX 中断，防止中断风暴。
+	（3）软中断触发 net_rx_action()：
+		net_rx_action() 遍历 poll_list，调用 e1000_clean() 处理网络数据包。
+	（4）e1000_clean() 处理 Rx 和 Tx：
+		e1000_clean_rx_irq() 处理已发送完成的 rx 。
+		adapter->clean_rx() 处理接收到的 Rx 数据包。
+	（5）若数据处理完毕，调用 napi_complete() 退出轮询模式：
+		napi_complete_done() 退出 NAPI 轮询。
+		重新启用 RX 中断，让下次数据包到来时触发新中断。
+
+5. register_netdev
+	在e1000_probe中调用register_netdev注册网络设备
+
+6. e1000_netdev_ops中注册的.ndo_open函数=e1000_open
+	
+7. e1000_configure
+	e1000_open中调用e1000_configure，进行接受（e1000_configure_rx）和发送（e1000_configure_tx）参数配置
+
+8. e1000_configure_rx
+	在本函数中，为clean_rx注册方法：adapter->clean_rx = e1000_clean_rx_irq;
+
+9. e1000_clean_rx_irq
+	调用e1000_receive_skb
+
+10. e1000_receive_skb
+	调用napi_gro_receive(&adapter->napi, skb);
+
+11. napi_gro_receive
+	调用ret = napi_skb_finish(napi, skb, dev_gro_receive(napi, skb));
+
+12. napi_skb_finish
+	调用gro_normal_one(napi, skb, 1);
+
+13. gro_normal_one
+	调用gro_normal_list(napi);
+
+14. gro_normal_list
+	调用netif_receive_skb_list_internal(&napi->rx_list);
+
+15. netif_receive_skb_list_internal
+	调用__netif_receive_skb_list_core(&sublist, pfmemalloc);
+
+16. __netif_receive_skb_list_core
+	调用__netif_receive_skb_list_ptype(&sublist, pt_curr, od_curr);
+
+17. __netif_receive_skb_list_ptype：判断ipv4或者ipv6处理
+	INDIRECT_CALL_INET(pt_prev->list_func, ipv6_list_rcv,
+				   ip_list_rcv, head, pt_prev, orig_dev);
+	这里以ip_list_rcv为例子
+
+18. ip_list_rcv_finish
+	调用ip_sublist_rcv_finish(&sublist);
+
+19. ip_sublist_rcv_finish
+	调用dst_input(skb);
+
+20. dst_input
+	static inline int dst_input(struct sk_buff *skb)
+	{
+		return INDIRECT_CALL_INET(skb_dst(skb)->input,
+				  ip6_input, ip_local_deliver, skb);
+	}
+	调用ip_local_deliver
+
+21. ip_local_deliver
+	return NF_HOOK(NFPROTO_IPV4, NF_INET_LOCAL_IN,
+		       net, NULL, skb, skb->dev, NULL,
+		       ip_local_deliver_finish);
+	调用ip_local_deliver_finish
+
+22. ip_local_deliver_finish
+	调用ip_protocol_deliver_rcu(net, skb, ip_hdr(skb)->protocol);
+
+23. ip_protocol_deliver_rcu
+	调用ret = INDIRECT_CALL_2(ipprot->handler, tcp_v4_rcv, udp_rcv, skb);
+
+24. tcp_v4_rcv
+	调用ret = tcp_v4_do_rcv(sk, skb);
+
+25. tcp_v4_do_rcv
+	调用tcp_rcv_established(sk, skb);
+
+26. tcp_rcv_established
+	调用tcp_data_queue(sk, skb);
+
+27. tcp_data_queue
+	调用eaten = tcp_queue_rcv(sk, skb, &fragstolen);
+
+28. tcp_queue_rcv：核心函数
+	static int __must_check tcp_queue_rcv(struct sock *sk, struct sk_buff *skb,
+				      bool *fragstolen) {
+		int eaten;
+		struct sk_buff *tail = skb_peek_tail(&sk->sk_receive_queue);
+
+		eaten = (tail &&
+			 tcp_try_coalesce(sk, tail,
+					  skb, fragstolen)) ? 1 : 0;
+		tcp_rcv_nxt_update(tcp_sk(sk), TCP_SKB_CB(skb)->end_seq);
+		if (!eaten) {
+			__skb_queue_tail(&sk->sk_receive_queue, skb);
+			skb_set_owner_r(skb, sk);
+		}
+		return eaten;
+	}
+	最终，把skb放到sk->sk_receive_queue队列中，等待用户读取
+
+
+用户进程读取网卡数据
+1. recv
+	SYSCALL_DEFINE4(recv, int, fd, void __user *, ubuf, size_t, size,
+		unsigned int, flags)
+	{
+		return __sys_recvfrom(fd, ubuf, size, flags, NULL, NULL);
+	}
+
+2. __sys_recvfrom
+	调用：err = sock_recvmsg(sock, &msg, flags);
+
+3. sock_recvmsg
+	调用sock_recvmsg_nosec
+
+4. sock_recvmsg_nosec
+	int ret = INDIRECT_CALL_INET(sock->ops->recvmsg, inet6_recvmsg,
+			     inet_recvmsg, sock, msg,
+			     msg_data_left(msg), flags);
+	调用inet_recvmsg
+
+5. inet_recvmsg
+	err = INDIRECT_CALL_2(sk->sk_prot->recvmsg, tcp_recvmsg, udp_recvmsg,
+			      sk, msg, size, flags, &addr_len);
+	调用tcp_recvmsg
+
+6. tcp_recvmsg
+	调用ret = tcp_recvmsg_locked(sk, msg, len, flags, &tss, &cmsg_flags);
+
+7. tcp_recvmsg_locked
+	如果是URGENT（带外数据MSG_OOB），则调用tcp_recv_urg()，这个里面很明显看到只复制一个字符
+	调用skb_copy_datagram_msg进入正常流程将 sk_buff 数据拷贝到用户空间缓冲区中。
+
+8. skb_copy_datagram_msg
+	调用skb_copy_datagram_iter
+
+9. skb_copy_datagram_iter
+	调用skb_copy_datagram_iter
+
+-------------------------------------------------------------------------------------------------------------------------------------------------
+e1000网卡发送数据流程
+
+用户进程发送数据到网卡流程
+1. SYSCALL_DEFINE4(send)
+	调用__sys_sendto
+
+2. __sys_sendto
+	调用err = sock_sendmsg(sock, &msg);
+
+3. sock_sendmsg
+	调用return err ?: sock_sendmsg_nosec(sock, msg);
+
+4. sock_sendmsg_nosec
+	int ret = INDIRECT_CALL_INET(sock->ops->sendmsg, inet6_sendmsg, inet_sendmsg, sock, msg, msg_data_left(msg));
+	调用inet_sendmsg
+			
+5. inet_sendmsg
+	return INDIRECT_CALL_2(sk->sk_prot->sendmsg, tcp_sendmsg, udp_sendmsg, sk, msg, size);
+	这里以tcp为例，调用tcp_sendmsg
+
+6. tcp_sendmsg
+	调用tcp_sendmsg_locked
+
+7. tcp_sendmsg_locked
+	调用tcp_skb_entail(sk, skb);
+
+8. tcp_skb_entail
+	调用tcp_add_write_queue_tail(sk, skb);
+
+9. tcp_add_write_queue_tail
+	把skb塞到sk->sk_write_queue队列里面，等待网卡进行读取发送
+
+第二部分，用户空间发送数据到网络协议栈
+10. tcp_sendmsg_locked
+	调用tcp_push(sk, flags, mss_now, tp->nonagle, size_goal);
+
+11. tcp_push
+	调用__tcp_push_pending_frames(sk, mss_now, nonagle);
+
+12， __tcp_push_pending_frames
+	调用tcp_write_xmit(sk, cur_mss, nonagle, 0, sk_gfp_mask(sk, GFP_ATOMIC))
+
+13. tcp_write_xmit
+	调用tcp_transmit_skb(sk, skb, 1, gfp)
+
+14. tcp_transmit_skb
+	调用__tcp_transmit_skb(sk, skb, clone_it, gfp_mask, tcp_sk(sk)->rcv_nxt)
+
+15. __tcp_transmit_skb
+	err = INDIRECT_CALL_INET(icsk->icsk_af_ops->queue_xmit, inet6_csk_xmit, ip_queue_xmit, sk, skb, &inet->cork.fl);
+	这个以ipv4为例子，调用ip_queue_xmit
+
+16. ip_queue_xmit
+	调用__ip_queue_xmit
+
+17. __ip_queue_xmit
+	调用res = ip_local_out(net, sk, skb);
+
+18. ip_local_out
+	err = __ip_local_out(net, sk, skb);
+
+19. __ip_local_out
+	return nf_hook(NFPROTO_IPV4, NF_INET_LOCAL_OUT, net, sk, skb, NULL, skb_dst(skb)->dev, dst_output);
+	这里调用dst_output
+
+20. dst_output
+	return INDIRECT_CALL_INET(skb_dst(skb)->output, ip6_output, ip_output, net, sk, skb);
+	这里以ipv4为例子，调用ip_output
+
+21. ip_output
+	return NF_HOOK_COND(NFPROTO_IPV4, NF_INET_POST_ROUTING, net, sk, skb, indev, dev, ip_finish_output, !(IPCB(skb)->flags & IPSKB_REROUTED));
+	这里调用ip_finish_output来发送实际的数据包
+
+22. ip_finish_output
+	调用__ip_finish_output
+
+23. __ip_finish_output
+	调用ip_finish_output2(net, sk, skb);
+
+24. ip_finish_output2
+	res = neigh_output(neigh, skb, is_v6gw);根据目标路由查找相应的邻居（下一跳），然后将数据包发送给邻居。如果邻居找不到，丢弃数据包并返回错误。
+
+25. neigh_output
+	if (!skip_cache &&
+	    (READ_ONCE(n->nud_state) & NUD_CONNECTED) &&
+	    READ_ONCE(hh->hh_len))
+		return neigh_hh_output(hh, skb);
+
+	return n->output(n, skb);
+	(1) 如果 skip_cache 为 false，且目标邻居的状态是 NUD_CONNECTED（即目标设备已连接，邻居缓存是有效的），并且邻居的硬件头长度 hh_len 非零，neigh_output 会通过 neigh_hh_output 将数据包直接发送到链路层设备。这通常是通过已有的硬件缓存（如 MAC 地址）来进行发送。
+	(2) 如果不使用缓存或没有缓存可用，neigh_output 会调用邻居的 output 函数来发送数据包。这个 output 函数通常是由网络设备的驱动程序提供的，用于实际将数据包传送到链路层。
+	
+	static const struct neigh_ops arp_generic_ops = {
+		.family =		AF_INET,
+		.solicit =		arp_solicit,
+		.error_report =		arp_error_report,
+		.output =		neigh_resolve_output,
+		.connected_output =	neigh_connected_output,
+	};
+	这个钩子在/net/ipv4/af_inet.c中fs_initcall(inet_init)初始化，再调用arp_init()，最后调用neigh_table_init(NEIGH_ARP_TABLE, &arp_tbl)，初始化neighbour；在arp_tbl.constructor中调用arp_constructor方法来初始化arp，并执行neigh->ops = &arp_direct_ops，把钩子完全挂上
+
+	这里output指向的是neigh_resolve_output函数，进而调用__dev_queue_xmit，再调用dev_hard_start_xmit，再xmit_one，再netdev_start_xmit，见下函数：
+
+	static inline netdev_tx_t __netdev_start_xmit(const struct net_device_ops *ops,
+					      struct sk_buff *skb, struct net_device *dev,
+					      bool more)
+	{
+		__this_cpu_write(softnet_data.xmit.more, more);
+		return ops->ndo_start_xmit(skb, dev);
+	}
+
+	static inline netdev_tx_t netdev_start_xmit(struct sk_buff *skb, struct net_device *dev,
+					    struct netdev_queue *txq, bool more)
+	{
+		const struct net_device_ops *ops = dev->netdev_ops;
+		netdev_tx_t rc;
+
+		rc = __netdev_start_xmit(ops, skb, dev, more);
+		if (rc == NETDEV_TX_OK)
+			txq_trans_update(txq);
+
+		return rc;
+	}
+	最终在__netdev_start_xmit函数中，调用ops->ndo_start_xmit(skb, dev)，而在e1000_main.c中，我们已经绑定了ndo_start_xmit指向e1000_xmit_frame。
+	所以如果是e1000网卡，这里output走的就是e1000_xmit_frame函数
+
+26. e1000_xmit_frame
+	e1000_tx_map() 函数负责将数据包（包括头部和数据段）映射到 DMA 地址，并为发送队列中的每个描述符（用于网络数据的传输）分配缓冲区。
+	
+	最终调用writel(tx_ring->next_to_use, hw->hw_addr + tx_ring->tdt); 来告知硬件网卡(向硬件寄存器写入更新后的描述符指针)，有数据需要发送
