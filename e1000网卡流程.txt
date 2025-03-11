@@ -53,6 +53,7 @@
 	调用netif_receive_skb_list_internal(&napi->rx_list);
 
 15. netif_receive_skb_list_internal
+	调用__netif_receive_skb_list
 	调用__netif_receive_skb_list_core(&sublist, pfmemalloc);
 
 16. __netif_receive_skb_list_core
@@ -61,7 +62,7 @@
 17. __netif_receive_skb_list_ptype：判断ipv4或者ipv6处理
 	INDIRECT_CALL_INET(pt_prev->list_func, ipv6_list_rcv,
 				   ip_list_rcv, head, pt_prev, orig_dev);
-	这里以ip_list_rcv为例子
+	这里以ip_list_rcv为例子，继续调用ip_sublist_rcv
 
 18. ip_list_rcv_finish
 	调用ip_sublist_rcv_finish(&sublist);
