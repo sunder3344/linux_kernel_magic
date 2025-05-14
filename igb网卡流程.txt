@@ -9,6 +9,9 @@
 	（1）配置igb_netdev_ops：netdev->netdev_ops = &igb_netdev_ops; igb_set_ethtool_ops(netdev);
 	（2）在最后调用igb_sw_init，再进入igb_init_interrupt_scheme(adapter, true)来初始化中断方案
 		我们层层进入igb_alloc_q_vectors，igb_alloc_q_vector，在netif_napi_add(adapter->netdev, &q_vector->napi, igb_poll);中注册igb_poll用来进行napi的poll轮询
+	在net_dev_init方法中，注册了软中断：
+	open_softirq(NET_TX_SOFTIRQ, net_tx_action);
+	open_softirq(NET_RX_SOFTIRQ, net_rx_action);
 
 4. register_netdev
 	在igb_probe中调用register_netdev注册网络设备

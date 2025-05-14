@@ -8,6 +8,9 @@
 3. e1000_probe				
 	配置ethtool_ops：netdev->netdev_ops = &e1000_netdev_ops; e1000_set_ethtool_ops(netdev);		
 	注册napi：netif_napi_add(netdev, &adapter->napi, e1000_clean);	e1000_clean用做poll轮询
+	在net_dev_init方法中，注册了软中断：
+	open_softirq(NET_TX_SOFTIRQ, net_tx_action);
+	open_softirq(NET_RX_SOFTIRQ, net_rx_action);
 
 4. e1000_clean
 	（1）网卡收到数据包，触发硬件中断。
