@@ -15,6 +15,10 @@
 4. e1000_clean
 	（1）网卡收到数据包，触发硬件中断。
 	（2）在中断处理函数中 (e1000_intr())，调用 napi_schedule()：
+		e1000_open中调用e1000_request_irq方法，其中会触发
+		irq_handler_t handler = e1000_intr;
+		request_irq(adapter->pdev->irq, handler, irq_flags, netdev->name, netdev);会在e1000_intr中__napi_schedule(&adapter->napi);触发软中断事件
+
 		这会将 adapter->napi 加入 poll_list，并触发 NET_RX_SOFTIRQ 软中断。
 		关键：此时 禁用 RX 中断，防止中断风暴。
 	（3）软中断触发 net_rx_action()：

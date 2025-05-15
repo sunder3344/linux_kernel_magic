@@ -22,6 +22,7 @@
 	igb_open中调用err = igb_setup_all_rx_resources(adapter);在这里再调用igb_setup_rx_resources(adapter->rx_ring[i])分配接收描述符数组。
 	igb_open中调用err = igb_setup_all_tx_resources(adapter);在这里再调用igb_setup_tx_resources(adapter->tx_ring[i])分配发送描述符数组。
 	igb_open中调用err = igb_request_irq(adapter);这里配置中断回调函数
+	调用request_irq(pdev->irq, igb_intr, IRQF_SHARED, netdev->name, adapter);会在igb_intr中napi_schedule(&q_vector->napi);触发软中断事件
 
 7. igb_setup_rx_resources和igb_setup_tx_resources
 	分配RX缓冲区(rx_buffer_info)：struct igb_rx_buffer
