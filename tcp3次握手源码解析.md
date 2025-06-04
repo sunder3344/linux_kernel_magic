@@ -544,7 +544,9 @@ __tcp_transmit_skb方法
 		.send_reset	=	tcp_v4_send_reset,
 		.syn_ack_timeout =	tcp_syn_ack_timeout,
 	};
-	
+```
+
+```
 	const struct tcp_request_sock_ops tcp_request_sock_ipv4_ops = {
 		.mss_clamp	=	TCP_MSS_DEFAULT,
 	#ifdef CONFIG_TCP_MD5SIG
@@ -559,7 +561,9 @@ __tcp_transmit_skb方法
 		.init_ts_off	=	tcp_v4_init_ts_off,
 		.send_synack	=	tcp_v4_send_synack,
 	};
-	
+```
+
+```	
 	int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
 	{
 		/* Never answer to SYNs send to broadcast or multicast */
@@ -661,8 +665,9 @@ __tcp_transmit_skb方法
 		inet_csk_reqsk_queue_added(sk);
 	}
 	EXPORT_SYMBOL_GPL(inet_csk_reqsk_queue_hash_add);
-	
-		
+```
+
+```		
 	//将半连接的socket（request_sock）加入到accept的队列中	
 	static inline void inet_csk_reqsk_queue_added(struct sock *sk)
 	{
@@ -682,7 +687,9 @@ __tcp_transmit_skb方法
 				    sk->sk_rcv_saddr, sk->sk_num,
 				    sk->sk_daddr, sk->sk_dport);
 	}
+```
 
+```
 	bool inet_ehash_insert(struct sock *sk, struct sock *osk, bool *found_dup_sk)
 	{
 		//用于从给定的 sock（struct sock *sk）获取TCP使用的连接哈希表信息，即返回指向 struct inet_hashinfo的指针
@@ -717,8 +724,9 @@ __tcp_transmit_skb方法
 		spin_unlock(lock);
 		return ret;
 	}
-	
-	
+```
+
+```
 	//这个函数主要是设置一个定时器，超过时间的半连接都会被丢弃；另外就是会把半连接socket插入到TCP的established hash表中，方便后面第三次握手时服务端去查找这个半链接socket
 	static void reqsk_queue_hash_req(struct request_sock *req,
 				 unsigned long timeout)
@@ -993,7 +1001,9 @@ __tcp_transmit_skb方法
 		__tcp_transmit_skb(sk, buff, 0, (__force gfp_t)0, rcv_nxt);
 	}
 	EXPORT_SYMBOL_GPL(__tcp_send_ack);
-	
+```
+
+```
 	static void tcp_init_nondata_skb(struct sk_buff *skb, u32 seq, u8 flags)
 	{
 		skb->ip_summed = CHECKSUM_PARTIAL;
