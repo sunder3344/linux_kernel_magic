@@ -1,0 +1,90 @@
+1. 查看可以插桩的位置
+
+# 查看全系统所有的 tracepoint 类别
+ls /sys/kernel/debug/tracing/events/
+
+# 查看 syscalls（系统调用）类别下，有哪些具体的埋点
+ls /sys/kernel/debug/tracing/events/syscalls/
+
+SEC("tp/syscalls/sys_enter_write")
+
+简写/前缀					核心作用							怎么查找具体的插桩点名称？
+tp/或tracepoint/			挂载到内核官方静态埋点（性能最好最稳定）				ls /sys/kernel/debug/tracing/events/
+kprobe/				挂载到任意内核函数的入口（比如旧版本的删除文件 do_unlinkat）		cat /proc/kallsyms (能查到系统所有内核函数名)
+kretprobe/			挂载到任意内核函数的出口/返回处（用于拿返回值或测耗时）			同上，使用内核函数名
+uprobe/				挂载到用户态应用程序或动态库（如 libc）的函数入口			传入用户态文件的绝对路径和函数名
+fentry/				现代内核（5.5+）中用来替代 kprobe 的新技术，性能接近 tracepoint		同kprobe
+xdp/				网络杀手锏。挂载到网卡驱动的最底层，直接接管原生网络数据包处理		不需要指定具体的内核函数，而是通过用户态代码绑定到指定的网络网卡（如 eth0）
+
+2. 参数
+对于 SEC("tp/...")，参数是有固定定义的。void *ctx 在这里实际上是一个指针，指向内核定义好的一个特定结构体。
+它的含义： 这个结构体包含了该 Tracepoint 定义时所有的上下文数据（入参）。
+如何写：你需要找到该 Tracepoint 对应的结构体定义。对于 sys_enter_write，你可以去查内核源码，或者简单地利用 bpftool 查看。
+
+// 强制类型转换，把 ctx 转为 Tracepoint 专用的结构体
+SEC("tp/syscalls/sys_enter_write")
+int handle_tp(struct trace_event_raw_sys_enter *ctx) {
+    // sys_enter_write 的参数就在 ctx->args 数组里
+    long fd = ctx->args[0];
+    const char *buf = (const char *)ctx->args[1];
+    size_t count = (size_t)ctx->args[2];
+    return 0;
+}
+注：trace_event_raw_sys_enter 是 syscall 入口通用的结构体。
+
+
+Kprobe 的参数规则：基于 BPF_KPROBE 宏（强力推荐）
+对于 SEC("kprobe/...")，早期的写法非常痛苦（需要手动偏移寄存器），但现在 libbpf 提供了一个语法糖宏 BPF_KPROBE。它可以自动帮你把 CPU 寄存器里的函数参数映射到 C 语言函数的参数上。
+它的优点： 你不需要处理 void *ctx，直接写你想监控的函数的参数表就行！
+
+SEC("kprobe/do_unlinkat")
+int BPF_KPROBE(do_unlinkat_probe, int dfd, struct filename *name) {
+    // 这里直接用 dfd 和 name，就像在写原函数一样！
+    // 甚至可以直接读取 struct filename 里的成员
+    bpf_printk("Deleting: %s\n", name->name);
+    return 0;
+}
+
+如果不用BPF_KPROBE、BPF_KRETPROBE、BPF_PROG这种语法糖，只能按下面这么写：
+SEC("kprobe/do_unlinkat")
+int handle_kprobe(struct pt_regs *ctx) {
+    // 这里你拿到的 ctx 是 CPU 寄存器的快照
+    // 你需要手动去寄存器里抠参数（极其痛苦且容易出错）
+    int dfd = (int)PT_REGS_PARM1(ctx);
+    struct filename *name = (struct filename *)PT_REGS_PARM2(ctx);
+    
+    bpf_printk("Deleting: %s\n", name->name);
+    return 0;
+}
+
+3.编译
+一般都是通过libbpf-bootstrap来写的，但是这个要写**.bpf.c（内核端）和**c(客户端)，还有一种就是直接写服务端，然后手动编译加载
+
+手动编译
+clang -target bpf -O2 -g -D__TARGET_ARCH_x86 -c test.bpf.c -o test.bpf.o
+由于是在主流的台式机/服务器（x86_64 架构）上开发，在编译时加上 -D__TARGET_ARCH_x86 即可
+
+# 将编译好的对象文件加载到内核中，并在 /sys/fs/bpf/ 目录下创建常驻链接
+sudo bpftool prog loadall test.bpf.o /sys/fs/bpf/test_prog
+**为什么用 loadall 而不是 load？因为你的文件里写了两个 SEC（一个 fentry，一个 fexit）。普通的 load 只会加载第一个，而 loadall 会把这个文件里所有的 BPF 程序一网打尽。
+
+ls -l /sys/fs/bpf/test_group/
+你会看到在这个文件夹下出现了两个文件，名字对应你的函数名：do_unlinkat 和 do_unlinkat_exit
+
+# 1. 挂载 fentry
+sudo bpftool prog attach pinned /sys/fs/bpf/test_prog/do_unlinkat kprobe do_unlinkat
+
+# 2. 挂载 fexit
+sudo bpftool prog attach pinned /sys/fs/bpf/test_prog/do_unlinkat_exit kretprobe do_unlinkat
+
+# 查看是否在运行
+sudo bpftool prog show
+
+# 卸载它（删除固定文件）
+sudo rm -f /sys/fs/bpf/my_test_prog
+
+#xdp的卸载（xdp的挂载，ctrl+c终止用户端后，内核的挂载不一定会卸载，需要如下命令去删除，lo是回环网卡，可能是eth0）
+sudo ip link set dev lo xdp off
+
+#查看和管理附加到网络接口（XDP）及流量控制（TC/qdisc）子系统的 eBPF 程序‌的命令
+bpftool net
