@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <sys/resource.h>
 #include <bpf/libbpf.h>
-#include "lsm.skel.h"
+#include "lsm_control.skel.h"
 
 /* Notice: Ensure your kernel version is 5.7 or higher, BTF (BPF Type Format) is enabled,
  * and the file '/sys/kernel/security/lsm' includes 'bpf'.
@@ -16,21 +16,21 @@ static int libbpf_print_fn(enum libbpf_print_level level, const char *format, va
 
 int main(int argc, char **argv)
 {
-	struct lsm_bpf *skel;
+	struct lsm_control_bpf *skel;
 	int err;
 
 	/* Set up libbpf errors and debug info callback */
 	libbpf_set_print(libbpf_print_fn);
 
 	/* Open, load, and verify BPF application */
-	skel = lsm_bpf__open_and_load();
+	skel = lsm_control_bpf__open_and_load();
 	if (!skel) {
 		fprintf(stderr, "Failed to open and load BPF skeleton\n");
 		goto cleanup;
 	}
 
 	/* Attach lsm handler */
-	err = lsm_bpf__attach(skel);
+	err = lsm_control_bpf__attach(skel);
 	if (err) {
 		fprintf(stderr, "Failed to attach BPF skeleton\n");
 		goto cleanup;
@@ -46,6 +46,6 @@ int main(int argc, char **argv)
 	}
 
 cleanup:
-	lsm_bpf__destroy(skel);
+	lsm_control_bpf__destroy(skel);
 	return -err;
 }

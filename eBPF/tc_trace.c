@@ -8,7 +8,7 @@
 #include <net/if.h>
 #include <signal.h>
 #include <string.h>
-#include "tc.skel.h"
+#include "tc_trace.skel.h"
 
 static volatile sig_atomic_t exiting = 0;
 
@@ -47,7 +47,7 @@ static int handle_event(void *ctx, void *data, size_t data_sz) {
 int main(int argc, char **argv)
 {
 	bool hook_created = false;
-	struct tc_bpf *skel;
+	struct tc_trace_bpf *skel;
 	int err;
 	struct ring_buffer *rb = NULL;
 
@@ -64,7 +64,7 @@ int main(int argc, char **argv)
 
 	libbpf_set_print(libbpf_print_fn);
 
-	skel = tc_bpf__open_and_load();
+	skel = tc_trace_bpf__open_and_load();
 	if (!skel) {
 		fprintf(stderr, "Failed to open BPF skeleton\n");
 		return 1;
@@ -122,6 +122,6 @@ cleanup:
 	if (hook_created)
 		bpf_tc_hook_destroy(&tc_hook);
 	ring_buffer__free(rb);
-	tc_bpf__destroy(skel);
+	tc_trace_bpf__destroy(skel);
 	return -err;
 }

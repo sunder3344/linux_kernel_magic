@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <sys/resource.h>
 #include <bpf/libbpf.h>
-#include "uprobe.skel.h"
+#include "uprobe_go.skel.h"
 
 struct event {
 	__u32 pid;
@@ -35,21 +35,21 @@ static int handle_event(void *ctx, void *data, size_t data_sz) {
 
 int main(int argc, char **argv)
 {
-	struct uprobe_bpf *skel;
+	struct uprobe_go_bpf *skel;
 	int err;
 
 	/* Set up libbpf errors and debug info callback */
 	libbpf_set_print(libbpf_print_fn);
 
 	/* Open BPF application */
-	skel = uprobe_bpf__open();
+	skel = uprobe_go_bpf__open();
 	if (!skel) {
 		fprintf(stderr, "Failed to open BPF skeleton\n");
 		return 1;
 	}
 
 	/* Load & verify BPF programs */
-	err = uprobe_bpf__load(skel);
+	err = uprobe_go_bpf__load(skel);
 	if (err) {
 		fprintf(stderr, "Failed to load and verify BPF skeleton\n");
 		goto cleanup;
@@ -113,6 +113,6 @@ int main(int argc, char **argv)
 	}
 
 cleanup:
-	uprobe_bpf__destroy(skel);
+	uprobe_go_bpf__destroy(skel);
 	return -err;
 }
