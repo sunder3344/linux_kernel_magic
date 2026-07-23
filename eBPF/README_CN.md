@@ -147,4 +147,4 @@ cat: /etc/passwd: Operation not permitted
 
 # 编译
 
-以上例子是基于libbpf-bootstrap进行开发，在编译前，把同目录的代码复制到libbpf-bootstrap/example/c下面，然后修改Makefile，把test，uprobe_go，xdp，tc_trace，lsm_control，tc_egress加到`APPS =`这行后面，然后make编译即可。
+以上例子是基于libbpf-bootstrap进行开发，在编译前，把同目录的代码复制到libbpf-bootstrap/example/c下面，然后修改Makefile，把test，uprobe_go，xdp，tc_trace，lsm_control，tc_egress，kprobe_sendmsg加到`APPS =`这行后面，然后make编译即可。
