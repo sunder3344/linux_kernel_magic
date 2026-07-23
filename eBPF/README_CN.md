@@ -85,7 +85,31 @@ Connection: close
 ```
 
 
-## tc_egress
+## kprobe_sendmsg
+
+`kprobe_sendmsg` 能在socket发送之前抓取到发送内容。这里是通过插桩到`tcp_sendmsg()`内核函数之前来触发打印信息。
+
+```shell
+$ sudo ./kprobe_sendmsg
+libbpf: loading object 'kprobe_sendmsg' from buffer
+...
+Successfully started! Please run `sudo cat /sys/kernel/debug/tracing/trace_pipe` to see output of the BPF programs.
+..........
+```
+
+输出在`/sys/kernel/debug/tracing/trace_pipe`可以看到:
+
+````shell
+$ sudo cat /sys/kernel/debug/tracing/trace_pipe
+           <...>-944575  [001] d..31 4237610.143110: bpf_trace_printk: pid 944575 send payload: POST / HTTP/1.1
+			Host: www.baidu.com
+			User-Agent: curl/7.88.1
+			Accept: */*
+			Content-Length: 20
+			Content-Type: application/x-www-form-urlencoded
+			
+			this is sendmsg demo
+````
 
 
 

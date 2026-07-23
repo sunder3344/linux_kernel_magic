@@ -9,7 +9,7 @@ Some BPF demo for detail application
 ## test
 
 `test` is just that – a minimal practical BPF application example. It print more info when 
-you triger `do_unlinkat` function.
+you trigger `do_unlinkat` function.
 
 ```shell
 $ cd examples/c
@@ -90,7 +90,31 @@ Connection: close
 
 
 
-## tc_egress
+## kprobe_sendmsg
+
+`kprobe_sendmsg` can catch the payload before you send msg through socket. In this example, the `tcp_sendmsg()` kernel function will trigger the printing.
+
+```shell
+$ sudo ./kprobe_sendmsg
+libbpf: loading object 'kprobe_sendmsg' from buffer
+...
+Successfully started! Please run `sudo cat /sys/kernel/debug/tracing/trace_pipe` to see output of the BPF programs.
+..........
+```
+
+The output from `lsm_control` in `/sys/kernel/debug/tracing/trace_pipe` is expected to resemble the following:
+
+````shell
+$ sudo cat /sys/kernel/debug/tracing/trace_pipe
+           <...>-944575  [001] d..31 4237610.143110: bpf_trace_printk: pid 944575 send payload: POST / HTTP/1.1
+			Host: www.baidu.com
+			User-Agent: curl/7.88.1
+			Accept: */*
+			Content-Length: 20
+			Content-Type: application/x-www-form-urlencoded
+			
+			this is sendmsg demo
+````
 
 
 
